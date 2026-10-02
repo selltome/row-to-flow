@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VINCI 2026: 闪卡训练系统 V7</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+<style>
+    body { font-family: 'Segoe UI', sans-serif; background: #0d1117; color: #c9d1d9; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box;}
+    #app { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 40px; width: 100%; max-width: 800px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); text-align: center; }
+    #upload-section { margin-bottom: 30px; padding: 20px; border: 2px dashed #30363d; border-radius: 8px; }
+    .upload-btn { background: #238636; color: white; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 16px; margin-top: 10px;}
+    .upload-btn:hover { background: #2ea043; }
+    .controls { display: flex; justify-content: space-between; margin-bottom: 20px; border-bottom: 1px solid #30363d; padding-bottom: 15px; align-items: center; }
+    .lang-toggle { background: #21262d; border: 1px solid #8b949e; color: #fff; padding: 5px 15px; border-radius: 20px; cursor: pointer; }
+    .question { font-size: 22px; font-weight: bold; color: #58a6ff; margin: 20px 0; min-height: 80px; }
+    .card { background: #21262d; border: 1px solid #30363d; border-radius: 8px; padding: 20px; margin-bottom: 20px; display: none; }
+    .keywords { font-size: 22px; color: #ff7b72; font-weight: bold; margin-bottom: 15px; word-spacing: 8px; text-transform: lowercase; }
+    .full-answer { font-size: 18px; color: #f0f6fc; line-height: 1.6; text-align: left; border-top: 1px dashed #30363d; padding-top: 15px; }
+    .analogy-box { margin-top: 15px; padding: 12px; background: rgba(137, 87, 229, 0.1); border-left: 3px solid #8957e5; border-radius: 4px; text-align: left; font-size: 16px; color: #c9a7ff; display: none; }
+    .analogy-label { font-size: 12px; color: #8957e5; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; }
+    .btn { padding: 12px 25px; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; margin: 5px; color: white; transition: 0.2s; }
+    .btn-show { background: #1f6feb; width: 100%; } .btn-show:hover { background: #388bfd; }
+    .btn-audio { background: #8957e5; } .btn-audio:hover { background: #a371f7; }
+    .eval-btns { display: none; justify-content: center; gap: 15px; margin-top: 20px; }
+    .btn-hard { background: #da3633; }
+    .btn-good { background: #d29922; }
+    .btn-easy { background: #238636; }
+    .progress-bar { width: 100%; height: 4px; background: #21262d; border-radius: 2px; margin-top: 15px; overflow: hidden; }
+    .progress-fill { height: 100%; background: #238636; transition: width 0.3s; }
+    #training-section { display: none; }
+    .weak-badge { display: inline-block; background: #da3633; color: white; font-size: 12px; padding: 2px 8px; border-radius: 10px; margin-left: 8px; }
+
+    @media (max-width: 600px) {
+        body { padding: 8px; }
+        #app { padding: 16px; border-radius: 8px; }
+        .question { font-size: 17px; min-height: 60px; margin: 12px 0; }
+        .keywords { font-size: 16px; word-spacing: 5px; margin-bottom: 10px; }
+        .full-answer { font-size: 15px; line-height: 1.5; }
+        .analogy-box { font-size: 14px; padding: 10px; }
+        .btn { padding: 10px 16px; font-size: 14px; margin: 3px; }
+        .controls { flex-direction: column; gap: 8px; padding-bottom: 10px; }
+        .upload-btn { font-size: 14px; padding: 8px 16px; }
+        .eval-btns { flex-direction: column; gap: 8px; }
+        .eval-btns .btn { width: 100%; }
+    }
+</style>
+</head>
+<body>
+
+<div id="app">
+    <div id="upload-section">
+        <h2 style="color:#00ffc8; margin-top:0;">1. 导入题库 (CSV)</h2>
+        <p style="color:#aaa; font-size: 14px;">表头需包含: Priority, Keywords, Q_EN, Q_ZH, A_EN, A_ZH, Analogy_EN, Analogy_ZH, Audio_Q, Audio_A, Audio_Analogy, Principles</p>
+        <p style="color:#888; font-size: 12px; margin-top: 5px;">Principles 只需填第一行，用 | 分隔。不填则用内置默认。</p>
+        <input type="file" id="csv-file" accept=".csv" style="color: #fff; margin-top: 10px;">
+        <br>
+        <button class="upload-btn" onclick="processCSV()">开始训练 🚀</button>
+    </div>
+
+    <div id="training-section">
+        <div class="controls">
+            <span id="counter" style="font-weight: bold; color: #8b949e;">Q: 1 / ?</span>
+            <span id="weak-counter" style="font-size: 13px; color: #da3633;"></span>
+            <div style="display: flex; gap: 8px;">
+                <button class="lang-toggle" onclick="togglePrinciples()">📖 原则速查</button>
+                <button class="lang-toggle" id="lang-btn" onclick="toggleLang()">🌐 EN / 中</button>
+            </div>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+
+        <div class="question" id="q-text">Loading...</div>
+        <button class="btn btn-audio" onclick="playAudio('q')">🔊 听审稿人提问</button>
+
+        <hr style="border-color: #30363d; margin: 25px 0;">
+
+        <button id="show-kw-btn" class="btn btn-show" onclick="showKeywords()">1. 提取关键词 (Reveal Keywords)</button>
+        
+        <div id="answer-card" class="card">
+            <div class="keywords" id="kw-text">KEYWORDS</div>
+            <div class="full-answer" id="a-text">Answer...</div>
+            <div class="analogy-box" id="analogy-box">
+                <div class="analogy-label">MIDI Analogy (optional)</div>
+                <div id="analogy-text"></div>
+                <button class="btn btn-audio" id="analogy-audio-btn" onclick="playAudio('analogy')" style="margin-top: 10px; font-size: 14px; padding: 8px 16px;">🔊 播放类比语音</button>
+            </div>
+            <button class="btn btn-audio" style="width:100%; margin-top:15px;" onclick="playAudio('a')">🔊 播放答案语音</button>
+            <button id="emergency-toggle" class="btn" style="background: #da3633; width: 100%; margin-top: 10px;" onclick="toggleEmergency()">🆘 我卡住了（万能应急模板）</button>
+            <div id="emergency-box" style="display: none; margin-top: 15px; padding: 15px; background: rgba(218, 54, 51, 0.1); border-left: 3px solid #da3633; border-radius: 4px; text-align: left;">
+                <div style="font-size: 12px; color: #da3633; font-weight: bold; margin-bottom: 10px;">UNIVERSAL FALLBACK TEMPLATE</div>
+                <div id="emergency-content"></div>
+            </div>
+        </div>
+
+        <button id="show-ans-btn" class="btn btn-show" style="display:none;" onclick="showAnswer()">2. 显示完整答案 (Show Answer)</button>
+
+        <div id="eval-section" class="eval-btns">
+            <button class="btn btn-hard" onclick="rateCard('hard')">太难 (Hard)</button>
+            <button class="btn btn-good" onclick="rateCard('good')">还行 (Good)</button>
+            <button class="btn btn-easy" onclick="rateCard('easy')">秒杀 (Easy)</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let db = [];
+let currIdx = 0;
+let lang = 'en';
+let currVariantIdx = 0;
+let weakSet = new Set();
+let answeredSet = new Set();
+let currentSession = [];
+
+// ==================== 万能应急模板 + 核心原则 ====================
+// HARDCODED v10.2 | 对应 CSV: 题库.csv (30题 + 2 AI) | 2026-10-01
+// CSV 若提供 Principles 列，则自动覆盖硬编码
+const FALLBACK_TEMPLATE = {
+    en: `That's a great question. To be honest, since the code went through several iterations, I don't recall the exact detail off the top of my head. But the core principle we followed was [insert principle]. I'd be happy to check the code and discuss it with you after the session.`,
+    zh: `这是个很好的问题。说实话，因为代码迭代了好几个版本，我一时想不起这个具体细节了。但我们遵循的核心原则是 [填入原则]。我很乐意会后查一下代码，再和您详细讨论。`
+};
+
+const PRINCIPLES_HARDCODED = [
+    { zh: "实时响应优先：实时画面必须无感知延迟。", en: "Real-time responsiveness first: live visuals must have zero perceived latency." },
+    { zh: "能量驱动：我们把动作看作能量注入与耗散。", en: "Energy-driven: we model motion as energy injection and dissipation." },
+    { zh: "方法独立：我们用独立检测器避免自证偏差。", en: "Methodological independence: we used an independent detector to avoid self-evaluation bias." },
+    { zh: "探索性轻量：这是探索性短文，管线刻意保持简单。", en: "Exploratory and lightweight: this is a short paper, so we kept the pipeline deliberately simple." },
+    { zh: "鲁棒抗漂移：动态基线抑制慢漂移和重力变化。", en: "Robust to drift: a dynamic baseline suppresses slow drift and gravity changes." },
+    { zh: "设备无关抽象：语义层解耦传感与渲染。", en: "Device-agnostic abstraction: the semantic layer decouples sensing from rendering." },
+    { zh: "数据透明：我们保留所有数据，排除规则是自动的。", en: "Data transparency: we retained all data and used automatic exclusion rules." },
+    { zh: "用户节奏自由：目标是让用户感觉自由，而非机械。", en: "User rhythm freedom: we aim for perceived freedom, not robotic pacing." }
+];
+
+let PRINCIPLES = [...PRINCIPLES_HARDCODED];
+
+const PRINCIPLES_EN_MAP = {
+    "实时响应优先": "Real-time responsiveness first: live visuals must have zero perceived latency.",
+    "能量驱动": "Energy-driven: we model motion as energy injection and dissipation.",
+    "方法独立": "Methodological independence: we used an independent detector to avoid self-evaluation bias.",
+    "探索性轻量": "Exploratory and lightweight: this is a short paper, so we kept the pipeline deliberately simple.",
+    "鲁棒抗漂移": "Robust to drift: a dynamic baseline suppresses slow drift and gravity changes.",
+    "设备无关抽象": "Device-agnostic abstraction: the semantic layer decouples sensing from rendering.",
+    "数据透明": "Data transparency: we retained all data and used automatic exclusion rules.",
+    "用户节奏自由": "User rhythm freedom: we aim for perceived freedom, not robotic pacing."
+};
+
+function renderEmergencyContent() {
+    const template = lang === 'en' ? FALLBACK_TEMPLATE.en : FALLBACK_TEMPLATE.zh;
+    let html = `<div style="margin-bottom: 15px; font-size: 15px; color: #f0f6fc; line-height: 1.6;">${template}</div>`;
+    html += `<div style="font-size: 12px; color: #da3633; font-weight: bold; margin-bottom: 8px;">核心原则库</div>`;
+    html += `<div style="font-size: 14px; color: #c9d1d9; line-height: 1.8;">`;
+    PRINCIPLES.forEach((p, i) => {
+        html += `<div style="margin-bottom: 5px;">${i + 1}. ${lang === 'en' ? p.en : p.zh}</div>`;
+    });
+    html += `</div>`;
+    document.getElementById('emergency-content').innerHTML = html;
+}
+
+function toggleEmergency() {
+    const box = document.getElementById('emergency-box');
+    if (box.style.display === 'none') {
+        renderEmergencyContent();
+        box.style.display = 'block';
+    } else {
+        box.style.display = 'none';
+    }
+}
+
+function togglePrinciples() {
+    const existing = document.getElementById('principles-modal');
+    if (existing) { existing.remove(); return; }
+    const modal = document.createElement('div');
+    modal.id = 'principles-modal';
+    modal.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999; background: #161b22; border: 2px solid #da3633; border-radius: 12px; padding: 25px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.8);';
+    let html = `<div style="font-size: 18px; color: #da3633; font-weight: bold; margin-bottom: 15px;">🆘 万能应急模板</div>`;
+    html += `<div style="font-size: 15px; color: #f0f6fc; line-height: 1.6; margin-bottom: 20px; padding: 12px; background: rgba(218, 54, 51, 0.1); border-radius: 6px;">${lang === 'en' ? FALLBACK_TEMPLATE.en : FALLBACK_TEMPLATE.zh}</div>`;
+    html += `<div style="font-size: 16px; color: #ff7b72; font-weight: bold; margin-bottom: 12px;">核心原则库</div>`;
+    PRINCIPLES.forEach((p, i) => {
+        html += `<div style="font-size: 14px; color: #c9d1d9; line-height: 1.8; margin-bottom: 6px;">${i + 1}. ${lang === 'en' ? p.en : p.zh}</div>`;
+    });
+    html += `<button onclick="document.getElementById('principles-modal').remove()" style="margin-top: 20px; padding: 10px 20px; background: #da3633; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">关闭</button>`;
+    modal.innerHTML = html;
+    document.body.appendChild(modal);
+}
+
+// ==================== CSV 解析 ====================
+function processCSV() {
+    const fileInput = document.getElementById('csv-file');
+    if (!fileInput.files.length) { alert("请先选择一个 CSV 文件！"); return; }
+
+    Papa.parse(fileInput.files[0], {
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+            const data = results.data;
+            if(!data[0].Q_EN || !data[0].A_EN) {
+                alert("CSV 格式不正确！请确保表头包含 Q_EN, A_EN 等字段。");
+                return;
+            }
+            
+            db = data.map(row => ({
+                id: row.Q_EN ? row.Q_EN.split('|')[0].trim() : Math.random().toString(),
+                priority: row.Priority ? row.Priority.trim() : "P2",
+                q_en: row.Q_EN ? row.Q_EN.split('|').map(s => s.trim()) : ["No question"],
+                q_zh: row.Q_ZH ? row.Q_ZH.split('|').map(s => s.trim()) : ["无中文翻译"],
+                keywords: row.Keywords ? row.Keywords.split('|').map(s => s.trim()) : ["no keywords"],
+                a_en: row.A_EN || "",
+                a_zh: row.A_ZH || "",
+                analogy_en: row.Analogy_EN || "",
+                analogy_zh: row.Analogy_ZH || "",
+                audio_q: row.Audio_Q ? row.Audio_Q.split('|').map(s => "audio/" + s.trim()) : [],
+                audio_a: row.Audio_A ? "audio/" + row.Audio_A.trim() : "",
+                audio_analogy: row.Audio_Analogy ? "audio/" + row.Audio_Analogy.trim() : ""
+            }));
+
+            // ✅ 尝试从 CSV 读取 Principles（只在第 1 个非空值处取）
+            const csvPrinciplesRaw = data.map(r => (r.Principles || "").trim()).find(v => v !== "");
+            if (csvPrinciplesRaw) {
+                const items = csvPrinciplesRaw.split('|').map(s => s.trim()).filter(s => s !== "");
+                if (items.length > 0) {
+                    PRINCIPLES = items.map(item => {
+                        const zhMatch = Object.keys(PRINCIPLES_EN_MAP).find(k => item.startsWith(k));
+                        return zhMatch 
+                            ? { zh: item, en: PRINCIPLES_EN_MAP[zhMatch] }
+                            : { zh: item, en: item };
+                    });
+                }
+            }
+
+            document.getElementById('upload-section').style.display = 'none';
+            document.getElementById('training-section').style.display = 'block';
+            
+            loadProgress();
+            startSession();
+        }
+    });
+}
+
+function startSession() {
+    db = shuffle(db);
+    currIdx = 0;
+    currentSession = db.map(d => d.id);
+    loadQuestion();
+}
+
+function shuffle(array) {
+    const a = [...array];
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+}
+
+// ==================== 进度持久化 ====================
+function saveProgress() {
+    try {
+        localStorage.setItem('r2f_weak', JSON.stringify([...weakSet]));
+        localStorage.setItem('r2f_answered', JSON.stringify([...answeredSet]));
+    } catch(e) {}
+}
+
+function loadProgress() {
+    try {
+        const w = localStorage.getItem('r2f_weak');
+        if (w) weakSet = new Set(JSON.parse(w));
+        const a = localStorage.getItem('r2f_answered');
+        if (a) answeredSet = new Set(JSON.parse(a));
+    } catch(e) {}
+}
+
+// ==================== 推进 + 渲染 ====================
+function loadQuestion() {
+    let nextCard = null;
+
+    if (Math.random() < 0.3) {
+        const p0Cards = db.filter(d => d.priority === "P0");
+        if (p0Cards.length > 0) {
+            nextCard = p0Cards[Math.floor(Math.random() * p0Cards.length)];
+            currIdx = db.indexOf(nextCard);
+        }
+    }
+
+    if (nextCard === null && weakSet.size > 0 && Math.random() < 0.5) {
+        const weakCards = db.filter(d => weakSet.has(d.id));
+        if (weakCards.length > 0) {
+            nextCard = weakCards[Math.floor(Math.random() * weakCards.length)];
+            currIdx = db.indexOf(nextCard);
+        }
+    }
+
+    if (nextCard === null) {
+        currIdx++;
+        if (currIdx >= db.length) {
+            alert("🎉 本轮完成！弱题会优先复习。");
+            startSession();
+            return;
+        }
+    }
+
+    const card = db[currIdx];
+    const qArray = lang === 'en' ? card.q_en : card.q_zh;
+    currVariantIdx = Math.floor(Math.random() * qArray.length);
+
+    document.getElementById('answer-card').style.display = 'none';
+    document.getElementById('show-kw-btn').style.display = 'block';
+    document.getElementById('show-ans-btn').style.display = 'none';
+    document.getElementById('eval-section').style.display = 'none';
+    document.getElementById('analogy-box').style.display = 'none';
+    document.getElementById('emergency-box').style.display = 'none';
+
+    renderCard();
+}
+
+function renderCard() {
+    const card = db[currIdx];
+    const isP0 = card.priority === "P0";
+    const isP1 = card.priority === "P1";
+    const star = isP0 ? ' ⭐' : (isP1 ? ' ☆' : '');
+    document.getElementById('counter').innerText = `Q: ${currIdx + 1} / ${db.length}${star}`;
+    document.getElementById('weak-counter').innerText = weakSet.size > 0 ? `弱题: ${weakSet.size}` : '';
+    document.getElementById('progress-fill').style.width = ((currIdx + 1) / db.length * 100) + '%';
+
+    const qEl = document.getElementById('q-text');
+    if (isP0) {
+        qEl.style.borderLeft = '4px solid #da3633';
+        qEl.style.paddingLeft = '12px';
+    } else if (isP1) {
+        qEl.style.borderLeft = '4px solid #d29922';
+        qEl.style.paddingLeft = '12px';
+    } else {
+        qEl.style.borderLeft = 'none';
+        qEl.style.paddingLeft = '0';
+    }
+
+    const qArray = lang === 'en' ? card.q_en : card.q_zh;
+    const safeIdx = currVariantIdx % qArray.length;
+    document.getElementById('q-text').innerText = qArray[safeIdx];
+
+    document.getElementById('kw-text').innerText = card.keywords.join("  →  ");
+    document.getElementById('a-text').innerText = lang === 'en' ? card.a_en : card.a_zh;
+
+    const analogy = lang === 'en' ? card.analogy_en : card.analogy_zh;
+    const analogyBtn = document.getElementById('analogy-audio-btn');
+    if (analogy && analogy.trim() !== "") {
+        document.getElementById('analogy-text').innerText = analogy;
+        document.getElementById('analogy-box').dataset.hasAnalogy = "true";
+        if (card.audio_analogy && card.audio_analogy.trim() !== "audio/" && card.audio_analogy !== "audio/") {
+            analogyBtn.style.display = 'inline-block';
+        } else {
+            analogyBtn.style.display = 'none';
+        }
+    } else {
+        document.getElementById('analogy-box').dataset.hasAnalogy = "false";
+        analogyBtn.style.display = 'none';
+    }
+}
+
+function showKeywords() {
+    document.getElementById('show-kw-btn').style.display = 'none';
+    document.getElementById('answer-card').style.display = 'block';
+    document.getElementById('show-ans-btn').style.display = 'block';
+}
+
+function showAnswer() {
+    document.getElementById('show-ans-btn').style.display = 'none';
+    document.getElementById('a-text').style.display = 'block';
+    if (document.getElementById('analogy-box').dataset.hasAnalogy === "true") {
+        document.getElementById('analogy-box').style.display = 'block';
+    }
+    document.getElementById('eval-section').style.display = 'flex';
+}
+
+// ==================== 评分 ====================
+function rateCard(level) {
+    const id = db[currIdx].id;
+    answeredSet.add(id);
+    if (level === 'hard') weakSet.add(id);
+    if (level === 'easy') weakSet.delete(id);
+    saveProgress();
+    nextQ();
+}
+
+function nextQ() {
+    loadQuestion();
+}
+
+function toggleLang() {
+    lang = lang === 'en' ? 'zh' : 'en';
+    document.getElementById('lang-btn').innerText = lang === 'en' ? '🌐 EN / 中' : '🌐 中 / EN';
+    renderCard();
+    // 如果 SOS 框打开，刷新其内容
+    const emergencyBox = document.getElementById('emergency-box');
+    if (emergencyBox.style.display === 'block') {
+        renderEmergencyContent();
+    }
+}
+
+// ==================== 音频 ====================
+function playAudio(type) {
+    let filename = "";
+    if (type === 'q') {
+        const audioArray = db[currIdx].audio_q;
+        filename = audioArray[currVariantIdx] || audioArray[0];
+    } else if (type === 'a') {
+        filename = db[currIdx].audio_a;
+    } else if (type === 'analogy') {
+        filename = db[currIdx].audio_analogy;
+    }
+    if(filename && filename !== "audio/" && filename !== "") {
+        let audio = new Audio(filename);
+        audio.play().catch(e => {});
+    }
+}
+</script>
+</body>
+</html>
