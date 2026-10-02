@@ -65,6 +65,7 @@
             <div style="display: flex; gap: 8px;">
                 <button class="lang-toggle" onclick="togglePrinciples()">📖 原则速查</button>
                 <button class="lang-toggle" id="lang-btn" onclick="toggleLang()">🌐 EN / 中</button>
+                <button class="lang-toggle" onclick="clearWeak()">🗑 清空弱题</button>
             </div>
         </div>
         <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
@@ -281,7 +282,7 @@ function loadQuestion() {
         }
     }
 
-    if (nextCard === null && weakSet.size > 0 && Math.random() < 0.5) {
+    if (nextCard === null && weakSet.size > 0 && Math.random() < 0.25) {
         const weakCards = db.filter(d => weakSet.has(d.id));
         if (weakCards.length > 0) {
             nextCard = weakCards[Math.floor(Math.random() * weakCards.length)];
@@ -393,6 +394,16 @@ function toggleLang() {
     const emergencyBox = document.getElementById('emergency-box');
     if (emergencyBox.style.display === 'block') {
         renderEmergencyContent();
+    }
+}
+
+// ==================== 清空弱题====================
+
+function clearWeak() {
+    if (confirm("确定清空弱题池？")) {
+        weakSet = new Set();
+        saveProgress();
+        alert("弱题池已清空");
     }
 }
 
