@@ -110,6 +110,7 @@ let currVariantIdx = 0;
 let weakSet = new Set();
 let answeredSet = new Set();
 let currentSession = [];
+let currentAudio = null;  // ✅ 全局音频引用，防止重叠
 
 // ==================== 万能应急模板 + 核心原则 ====================
 // HARDCODED v10.2 | 对应 CSV: 题库.csv (30题 + 2 AI) | 2026-10-01
@@ -397,6 +398,13 @@ function toggleLang() {
 
 // ==================== 音频 ====================
 function playAudio(type) {
+    // ✅ 先停止并释放当前音频，避免重叠
+    if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+        currentAudio = null;
+    }
+
     let filename = "";
     if (type === 'q') {
         const audioArray = db[currIdx].audio_q;
@@ -406,9 +414,12 @@ function playAudio(type) {
     } else if (type === 'analogy') {
         filename = db[currIdx].audio_analogy;
     }
-    if(filename && filename !== "audio/" && filename !== "") {
-        let audio = new Audio(filename);
-        audio.play().catch(e => {});
+
+    if (filename && filename !== "audio/" && filename !== "") {
+        currentAudio = new Audio(filename);
+        currentAudio.play().catch(e => {});
+        // ✅ 播放结束后自动清理，避免残留引用
+        currentAudio.onended = () => { currentAudio = null; };
     }
 }
 </script>
