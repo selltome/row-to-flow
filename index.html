@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VINCI 2026: 闪卡训练系统 V10</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+<style>
+    body { font-family: 'Segoe UI', sans-serif; background: #0d1117; color: #c9d1d9; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box;}
+    #app { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 40px; width: 100%; max-width: 800px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); text-align: center; }
+    #upload-section { margin-bottom: 30px; padding: 20px; border: 2px dashed #30363d; border-radius: 8px; }
+    .upload-btn { background: #238636; color: white; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 16px; margin-top: 10px;}
+    .upload-btn:hover { background: #2ea043; }
+    .controls { display: flex; justify-content: space-between; margin-bottom: 20px; border-bottom: 1px solid #30363d; padding-bottom: 15px; align-items: center; }
+    .lang-toggle { background: #21262d; border: 1px solid #8b949e; color: #fff; padding: 5px 15px; border-radius: 20px; cursor: pointer; }
+    .question { font-size: 22px; font-weight: bold; color: #58a6ff; margin: 20px 0; min-height: 80px; }
+    .card { background: #21262d; border: 1px solid #30363d; border-radius: 8px; padding: 20px; margin-bottom: 20px; display: none; }
+    .keywords { font-size: 22px; color: #ff7b72; font-weight: bold; margin-bottom: 15px; word-spacing: 8px; text-transform: lowercase; }
+    .full-answer { font-size: 18px; color: #f0f6fc; line-height: 1.6; text-align: left; border-top: 1px dashed #30363d; padding-top: 15px; }
+    .followup-box { margin-top: 15px; padding: 12px; background: rgba(218, 54, 51, 0.08); border-left: 3px solid #da3633; border-radius: 4px; text-align: left; font-size: 15px; color: #ffc9c9; display: none; }
+    .followup-label { font-size: 12px; color: #da3633; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; }
+    .analogy-box { margin-top: 15px; padding: 12px; background: rgba(137, 87, 229, 0.08); border-left: 3px solid #8957e5; border-radius: 4px; text-align: left; font-size: 15px; color: #c9a7ff; display: none; }
+    .analogy-label { font-size: 12px; color: #8957e5; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; }
+    .btn { padding: 12px 25px; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; margin: 5px; color: white; transition: 0.2s; }
+    .btn-show { background: #1f6feb; width: 100%; } .btn-show:hover { background: #388bfd; }
+    .btn-audio { background: #8957e5; } .btn-audio:hover { background: #a371f7; }
+    .btn-followup { background: #da3633; width: 100%; margin-top: 10px; } .btn-followup:hover { background: #f85149; }
+    .btn-analogy { background: #8957e5; width: 100%; margin-top: 10px; } .btn-analogy:hover { background: #a371f7; }
+    .btn-nav { background: #30363d; flex: 1; }
+    .btn-nav:hover { background: #484f58; }
+    .btn-random { background: #1f6feb; flex: 1; }
+    .btn-random:hover { background: #388bfd; }
+    .btn-list { background: #6e40c9; width: 100%; margin-top: 5px; }
+    .btn-list:hover { background: #8957e5; }
+    .eval-btns { display: none; justify-content: center; gap: 15px; margin-top: 20px; }
+    .btn-hard { background: #da3633; }
+    .btn-good { background: #d29922; }
+    .btn-easy { background: #238636; }
+    .progress-bar { width: 100%; height: 4px; background: #21262d; border-radius: 2px; margin-top: 15px; overflow: hidden; }
+    .progress-fill { height: 100%; background: #238636; transition: width 0.3s; }
+    #training-section { display: none; }
+    #list-panel { display: none; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 10px; margin-top: 10px; max-height: 350px; overflow-y: auto; text-align: left; }
+    .list-item { padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-bottom: 4px; font-size: 14px; transition: 0.15s; }
+    .list-item:hover { background: #21262d; }
+    .list-item.active { background: #1f6feb; color: white; }
+
+    @media (max-width: 600px) {
+        body { padding: 8px; }
+        #app { padding: 16px; border-radius: 8px; }
+        .question { font-size: 17px; min-height: 60px; margin: 12px 0; }
+        .keywords { font-size: 16px; word-spacing: 5px; margin-bottom: 10px; }
+        .full-answer { font-size: 15px; line-height: 1.5; }
+        .followup-box, .analogy-box { font-size: 14px; padding: 10px; }
+        .btn { padding: 10px 16px; font-size: 14px; margin: 3px; }
+        .controls { flex-direction: column; gap: 8px; padding-bottom: 10px; }
+        .upload-btn { font-size: 14px; padding: 8px 16px; }
+        .eval-btns { flex-direction: column; gap: 8px; }
+        .eval-btns .btn { width: 100%; }
+        .list-item { font-size: 12px; padding: 6px 8px; }
+    }
+</style>
+</head>
+<body>
+
+<div id="app">
+    <div id="upload-section">
+        <h2 style="color:#00ffc8; margin-top:0;">1. 导入题库 (CSV)</h2>
+        <p style="color:#aaa; font-size: 14px;">表头需包含: Priority, Keywords, Q_EN, Q_ZH, A_EN, A_ZH, Followup_Q_EN, Followup_Q_ZH, Followup_A_EN, Followup_A_ZH, Analogy_EN, Analogy_ZH, Audio_Q, Audio_A, Audio_Analogy, Audio_Followup_Q, Audio_Followup_A</p>
+        <input type="file" id="csv-file" accept=".csv" style="color: #fff; margin-top: 10px;">
+        <br>
+        <button class="upload-btn" onclick="processCSV()">开始训练 🚀</button>
+    </div>
+
+    <div id="training-section">
+        <div class="controls">
+            <span id="counter" style="font-weight: bold; color: #8b949e;">Q: 1 / ?</span>
+            <span id="weak-counter" style="font-size: 13px; color: #da3633;"></span>
+            <div style="display: flex; gap: 8px;">
+                <button class="lang-toggle" onclick="clearWeak()">🗑 清空弱题</button>
+                <button class="lang-toggle" id="lang-btn" onclick="toggleLang()">🌐 EN / 中</button>
+            </div>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+
+        <div class="question" id="q-text">Loading...</div>
+
+        <div style="display: flex; justify-content: center; gap: 8px; margin-bottom: 10px;">
+            <button class="btn btn-nav" onclick="prevQuestion()">⬅️ 上一题</button>
+            <button class="btn btn-random" onclick="randomQuestion()">🎲 随机</button>
+            <button class="btn btn-nav" onclick="nextQuestion()">➡️ 下一题</button>
+        </div>
+
+        <button class="btn btn-audio" onclick="playAudio('q')">🔊 听提问</button>
+        <button class="btn btn-list" onclick="toggleListPanel()">📋 题目列表</button>
+        <div id="list-panel"></div>
+
+        <hr style="border-color: #30363d; margin: 25px 0;">
+
+        <button id="show-kw-btn" class="btn btn-show" onclick="showKeywords()">1. 提取关键词</button>
+
+        <div id="answer-card" class="card">
+            <div class="keywords" id="kw-text">KEYWORDS</div>
+            <div class="full-answer" id="a-text">Answer...</div>
+            <button class="btn btn-audio" style="width:100%; margin-top:15px;" onclick="playAudio('a')">🔊 播放答案</button>
+            <button id="followup-toggle" class="btn btn-followup" onclick="toggleFollowup()">🔍 追问边界</button>
+            <div id="followup-box" class="followup-box">
+                <div class="followup-label" id="followup-label-text">If Pressed Further</div>
+                <div id="followup-text"></div>
+                <div style="display: flex; gap: 8px; margin-top: 10px;">
+                    <button class="btn btn-audio" style="flex: 1; font-size:14px; padding: 8px 16px;" onclick="playAudio('followup_q')">🔊 播放追问问题</button>
+                    <button class="btn btn-audio" style="flex: 1; font-size:14px; padding: 8px 16px;" onclick="playAudio('followup_a')">🔊 播放追问答案</button>
+                </div>
+            </div>
+            <button id="analogy-toggle" class="btn btn-analogy" onclick="toggleAnalogy()">💡 类比</button>
+            <div id="analogy-box" class="analogy-box">
+                <div class="analogy-label">MIDI Analogy (optional)</div>
+                <div id="analogy-text"></div>
+                <button class="btn btn-audio" style="width:100%; margin-top:10px; font-size:14px; padding: 8px 16px;" onclick="playAudio('analogy')">🔊 播放类比</button>
+            </div>
+        </div>
+
+        <button id="show-ans-btn" class="btn btn-show" style="display:none;" onclick="showAnswer()">2. 显示答案</button>
+
+        <div id="eval-section" class="eval-btns">
+            <button class="btn btn-hard" onclick="rateCard('hard')">太难</button>
+            <button class="btn btn-good" onclick="rateCard('good')">还行</button>
+            <button class="btn btn-easy" onclick="rateCard('easy')">秒杀</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let db = [];
+let currIdx = 0;
+let lang = 'en';
+let currVariantIdx = 0;
+let weakSet = new Set();
+let answeredSet = new Set();
+let currentAudio = null;
+let isManualMode = false;
+let followupRotation = 0;
+
+function processCSV() {
+    const fileInput = document.getElementById('csv-file');
+    if (!fileInput.files.length) { alert("请先选择一个 CSV 文件！"); return; }
+
+    Papa.parse(fileInput.files[0], {
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+            const data = results.data;
+            if (!data[0].Q_EN || !data[0].A_EN) {
+                alert("CSV 格式不正确！请确保表头包含 Q_EN, A_EN 等字段。");
+                return;
+            }
+
+            db = data.map((row, idx) => ({
+                originalIdx: idx + 1,
+                variantRotation: 0,
+                id: row.Q_EN ? row.Q_EN.split('|')[0].trim() : Math.random().toString(),
+                priority: row.Priority ? row.Priority.trim() : "P2",
+                q_en: row.Q_EN ? row.Q_EN.split('|').map(s => s.trim()) : ["No question"],
+                q_zh: row.Q_ZH ? row.Q_ZH.split('|').map(s => s.trim()) : ["无中文翻译"],
+                keywords: row.Keywords ? row.Keywords.split('|').map(s => s.trim()) : ["no keywords"],
+                a_en: row.A_EN || "",
+                a_zh: row.A_ZH || "",
+                followup_q_en: row.Followup_Q_EN || "",
+                followup_q_zh: row.Followup_Q_ZH || "",
+                followup_a_en: row.Followup_A_EN || "",
+                followup_a_zh: row.Followup_A_ZH || "",
+                analogy_en: row.Analogy_EN || "",
+                analogy_zh: row.Analogy_ZH || "",
+                audio_q: row.Audio_Q ? row.Audio_Q.split('|').map(s => "audio/" + s.trim()) : [],
+                audio_a: row.Audio_A ? "audio/" + row.Audio_A.trim() : "",
+                audio_analogy: row.Audio_Analogy ? "audio/" + row.Audio_Analogy.trim() : "",
+                audio_followup_q: row.Audio_Followup_Q ? row.Audio_Followup_Q.split('|').map(s => "audio/" + s.trim()) : [],
+                audio_followup_a: row.Audio_Followup_A ? row.Audio_Followup_A.split('|').map(s => "audio/" + s.trim()) : []
+            }));
+
+            document.getElementById('upload-section').style.display = 'none';
+            document.getElementById('training-section').style.display = 'block';
+
+            loadProgress();
+            startSession();
+        }
+    });
+}
+
+function startSession() {
+    db = shuffle(db);
+    currIdx = 0;
+    isManualMode = false;
+    loadQuestion();
+}
+
+function shuffle(array) {
+    const a = [...array];
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+}
+
+function saveProgress() {
+    try {
+        localStorage.setItem('r2f_weak', JSON.stringify([...weakSet]));
+        localStorage.setItem('r2f_answered', JSON.stringify([...answeredSet]));
+    } catch(e) {}
+}
+
+function loadProgress() {
+    try {
+        const w = localStorage.getItem('r2f_weak');
+        if (w) weakSet = new Set(JSON.parse(w));
+        const a = localStorage.getItem('r2f_answered');
+        if (a) answeredSet = new Set(JSON.parse(a));
+    } catch(e) {}
+}
+
+function clearWeak() {
+    if (confirm("确定清空弱题池？")) {
+        weakSet = new Set();
+        saveProgress();
+        alert("弱题池已清空");
+    }
+}
+
+function loadQuestion() {
+    isManualMode = false;
+
+    let nextCard = null;
+
+    if (Math.random() < 0.3) {
+        const p0Cards = db.filter(d => d.priority === "P0");
+        if (p0Cards.length > 0) {
+            nextCard = p0Cards[Math.floor(Math.random() * p0Cards.length)];
+            currIdx = db.indexOf(nextCard);
+        }
+    }
+
+    if (nextCard === null && weakSet.size > 0 && Math.random() < 0.25) {
+        const weakCards = db.filter(d => weakSet.has(d.id));
+        if (weakCards.length > 0) {
+            nextCard = weakCards[Math.floor(Math.random() * weakCards.length)];
+            currIdx = db.indexOf(nextCard);
+        }
+    }
+
+    if (nextCard === null) {
+        currIdx++;
+        if (currIdx >= db.length) {
+            alert("🎉 本轮完成！");
+            startSession();
+            return;
+        }
+    }
+
+    const card = db[currIdx];
+    const qArray = lang === 'en' ? card.q_en : card.q_zh;
+    currVariantIdx = card.variantRotation % qArray.length;
+    card.variantRotation++;
+
+    followupRotation = 0;
+    resetCardDisplay();
+    renderCard();
+}
+
+function loadQuestionManual() {
+    const card = db[currIdx];
+    const qArray = lang === 'en' ? card.q_en : card.q_zh;
+    currVariantIdx = card.variantRotation % qArray.length;
+    card.variantRotation++;
+
+    followupRotation = 0;
+
+    resetCardDisplay();
+    renderCard();
+}
+
+function resetCardDisplay() {
+    document.getElementById('answer-card').style.display = 'none';
+    document.getElementById('show-kw-btn').style.display = 'block';
+    document.getElementById('show-ans-btn').style.display = 'none';
+    document.getElementById('eval-section').style.display = 'none';
+    document.getElementById('followup-box').style.display = 'none';
+    document.getElementById('analogy-box').style.display = 'none';
+}
+
+function renderCard() {
+    const card = db[currIdx];
+    const isP0 = card.priority === "P0";
+    const isP1 = card.priority === "P1";
+    const star = isP0 ? ' ⭐' : (isP1 ? ' ☆' : '');
+    const modeIcon = isManualMode ? ' 📍' : ' 🎲';
+    const csvNum = card.originalIdx;
+    const qArray = lang === 'en' ? card.q_en : card.q_zh;
+    const variantNum = (currVariantIdx % qArray.length) + 1;
+    document.getElementById('counter').innerText = `CSV Q${csvNum} | 变体 ${variantNum}/${qArray.length} | ${currIdx + 1}/${db.length}${star}${modeIcon}`;
+    document.getElementById('weak-counter').innerText = weakSet.size > 0 ? `弱题: ${weakSet.size}` : '';
+    document.getElementById('progress-fill').style.width = ((currIdx + 1) / db.length * 100) + '%';
+
+    const qEl = document.getElementById('q-text');
+    if (isP0) {
+        qEl.style.borderLeft = '4px solid #da3633';
+        qEl.style.paddingLeft = '12px';
+    } else if (isP1) {
+        qEl.style.borderLeft = '4px solid #d29922';
+        qEl.style.paddingLeft = '12px';
+    } else {
+        qEl.style.borderLeft = 'none';
+        qEl.style.paddingLeft = '0';
+    }
+
+    const safeIdx = currVariantIdx % qArray.length;
+    document.getElementById('q-text').innerText = qArray[safeIdx];
+
+    document.getElementById('kw-text').innerText = card.keywords.join("  →  ");
+    document.getElementById('a-text').innerText = lang === 'en' ? card.a_en : card.a_zh;
+
+    const fqRaw = lang === 'en' ? card.followup_q_en : card.followup_q_zh;
+    const faRaw = lang === 'en' ? card.followup_a_en : card.followup_a_zh;
+    const followupToggle = document.getElementById('followup-toggle');
+    const followupLabel = document.getElementById('followup-label-text');
+
+    if (fqRaw && fqRaw.trim() !== "") {
+        const qList = fqRaw.split('|').map(s => s.trim());
+        const aList = faRaw ? faRaw.split('|').map(s => s.trim()) : [];
+
+        const currentRot = followupRotation % qList.length;
+        const currentQ = qList[currentRot];
+        const currentA = aList[currentRot] || "";
+
+        let display = `❓ ${currentQ}\n`;
+        if (currentA) display += `✅ ${currentA}`;
+
+        document.getElementById('followup-text').innerText = display;
+
+        if (followupLabel) {
+            followupLabel.innerText = `If Pressed Further (${currentRot + 1}/${qList.length})`;
+        }
+
+        followupToggle.style.display = 'block';
+    } else {
+        followupToggle.style.display = 'none';
+        if (followupLabel) {
+            followupLabel.innerText = 'If Pressed Further';
+        }
+    }
+
+    const analogy = lang === 'en' ? card.analogy_en : card.analogy_zh;
+    const analogyToggle = document.getElementById('analogy-toggle');
+    if (analogy && analogy.trim() !== "") {
+        document.getElementById('analogy-text').innerText = analogy;
+        analogyToggle.style.display = 'block';
+    } else {
+        analogyToggle.style.display = 'none';
+    }
+}
+
+function showKeywords() {
+    document.getElementById('show-kw-btn').style.display = 'none';
+    document.getElementById('answer-card').style.display = 'block';
+    document.getElementById('show-ans-btn').style.display = 'block';
+}
+
+function showAnswer() {
+    document.getElementById('show-ans-btn').style.display = 'none';
+    document.getElementById('eval-section').style.display = 'flex';
+}
+
+function toggleFollowup() {
+    const box = document.getElementById('followup-box');
+    if (box.style.display === 'block') {
+        box.style.display = 'none';
+        followupRotation++;
+    } else {
+        box.style.display = 'block';
+        renderCard();
+    }
+}
+
+function toggleAnalogy() {
+    const box = document.getElementById('analogy-box');
+    box.style.display = (box.style.display === 'block') ? 'none' : 'block';
+}
+
+function rateCard(level) {
+    const id = db[currIdx].id;
+    answeredSet.add(id);
+    if (level === 'hard') weakSet.add(id);
+    if (level === 'easy') weakSet.delete(id);
+    saveProgress();
+    nextQ();
+}
+
+function nextQ() {
+    loadQuestion();
+}
+
+function toggleLang() {
+    lang = lang === 'en' ? 'zh' : 'en';
+    document.getElementById('lang-btn').innerText = lang === 'en' ? '🌐 EN / 中' : '🌐 中 / EN';
+    const card = db[currIdx];
+    const qArray = lang === 'en' ? card.q_en : card.q_zh;
+    currVariantIdx = currVariantIdx % qArray.length;
+    renderCard();
+}
+
+function prevQuestion() {
+    isManualMode = true;
+    currIdx = (currIdx - 1 + db.length) % db.length;
+    loadQuestionManual();
+    if (document.getElementById('list-panel').style.display === 'block') renderList();
+}
+
+function nextQuestion() {
+    isManualMode = true;
+    currIdx = (currIdx + 1) % db.length;
+    loadQuestionManual();
+    if (document.getElementById('list-panel').style.display === 'block') renderList();
+}
+
+function randomQuestion() {
+    isManualMode = false;
+    loadQuestion();
+    if (document.getElementById('list-panel').style.display === 'block') renderList();
+}
+
+function toggleListPanel() {
+    const panel = document.getElementById('list-panel');
+    if (panel.style.display === 'none' || panel.style.display === '') {
+        renderList();
+        panel.style.display = 'block';
+    } else {
+        panel.style.display = 'none';
+    }
+}
+
+function renderList() {
+    const panel = document.getElementById('list-panel');
+    let html = '';
+    const sorted = [...db].sort((a, b) => a.originalIdx - b.originalIdx);
+    sorted.forEach((card) => {
+        const idx = db.indexOf(card);
+        const isP0 = card.priority === "P0";
+        const isP1 = card.priority === "P1";
+        const star = isP0 ? '⭐' : (isP1 ? '☆' : '·');
+        const active = idx === currIdx ? 'active' : '';
+        html += `<div class="list-item ${active}" onclick="jumpToQuestion(${idx})">
+            ${star} CSV Q${card.originalIdx} &nbsp; ${card.keywords.join(' | ')}
+        </div>`;
+    });
+    panel.innerHTML = html;
+}
+
+function jumpToQuestion(idx) {
+    isManualMode = true;
+    currIdx = idx;
+    loadQuestionManual();
+    document.getElementById('list-panel').style.display = 'none';
+}
+
+function playAudio(type) {
+    if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+        currentAudio = null;
+    }
+
+    let filename = "";
+    if (type === 'q') {
+        const arr = db[currIdx].audio_q;
+        const safeI = currVariantIdx % arr.length;
+        filename = arr[safeI] || arr[0];
+    } else if (type === 'a') {
+        filename = db[currIdx].audio_a;
+    } else if (type === 'analogy') {
+        filename = db[currIdx].audio_analogy;
+    } else if (type === 'followup_q') {
+        const arr = db[currIdx].audio_followup_q;
+        if (arr && arr.length > 0) {
+            const safeI = followupRotation % arr.length;
+            filename = arr[safeI] || arr[0];
+        }
+    } else if (type === 'followup_a') {
+        const arr = db[currIdx].audio_followup_a;
+        if (arr && arr.length > 0) {
+            const safeI = followupRotation % arr.length;
+            filename = arr[safeI] || arr[0];
+        }
+    }
+
+    if (filename && filename !== "audio/" && filename !== "") {
+        currentAudio = new Audio(filename);
+        currentAudio.play().catch(e => {});
+        currentAudio.onended = () => { currentAudio = null; };
+    }
+}
+</script>
+</body>
+</html>
